@@ -4,102 +4,42 @@
 #include <random>
 #include <thread>
 #include <chrono>
+#include "class.h"
 
-using std::cout;
-using std::cin;
-using std::endl;
-
-bool getRandBool() { //Generate bool based on ratio
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution <int> dist(0, 3);
-
-    int result = dist(gen);
-    return (result < 1) ? true : false;
-}
+using std::cout;using std::cin;using std::endl;
 
 int main() {
-    cout << "SFML version: " << SFML_VERSION_MAJOR << ".";
-    cout << SFML_VERSION_MINOR << std::endl;
-    const int win_width = 1700;
-    const int win_height = 850;
-    sf::RenderWindow window(sf::VideoMode({1700, 850}), "SFML Application");
+    cout << "SFML version: " << SFML_VERSION_MAJOR << "." << SFML_VERSION_MINOR << std::endl;
+    const int win_width = 3840 / 2.25; //4k resolution on retina display with SFML rendering
+    const int win_height = 2160 / 2.25;
+    sf::RenderWindow window(sf::VideoMode({win_width, win_height}), "'Game of Life'");
 
-    // 2D grids for boxes and the box grid's bools
-    std::vector<std::vector<sf::RectangleShape>> box_grid;
-    std::vector<std::vector<bool>> bool_grid;
-    std::vector<std::vector<bool>> bool_grid_next;
+    sf::RenderTexture texture({win_width, win_height});
+    texture.clear(sf::Color::Black); // create texture background
+    sf::Sprite sprite(texture.getTexture()); // connect texture to sprite
+    LifeClass lifeObj(win_width, win_height);
 
-    int row{};
-    int column{};
-    int size = 2;
-    for (int x = 10; x <= (win_width - 10 - size); x += size) {
-        box_grid.emplace_back(); //create new vectors for the incoming column
-        bool_grid.emplace_back();
-        bool_grid_next.emplace_back();
-        column = 0;
-        for (int y = 10; y <= (win_height - 10 - size); y += size) {
-            sf::RectangleShape next_box;
-            next_box.setSize({static_cast<float>(size), static_cast<float>(size)});
-            next_box.setPosition({static_cast<float>(x), static_cast<float>(y)});
-            bool next_bool = getRandBool();
-            bool_grid[row].push_back(next_bool); //add bool to 2d vector
-            bool_grid_next[row].push_back(next_bool); //add same bool to copy grid
+    // Define 2D cell and bool grids
+    lifeObj.createGrids(3);
 
-            if (bool_grid[row].back()) next_box.setFillColor(sf::Color::White); //colour for alive or dead
-            else next_box.setFillColor(sf::Color::Black);
+    // Render all cells once at the start
+    lifeObj.firstRender(texture);
 
-            box_grid[row].push_back(next_box); //add finished block to 2d vector
-
-            column ++;
-        }
-        row ++;
-    }
-
+    // Main game of life loop
     bool life = true;
-    bool step = false;
+    bool step = true;
     cout << "Opening window" << endl;
     while (window.isOpen())
     {
         if (life) {
             // std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Pause
 
-            for (int i = 0; i < box_grid.size(); i++) { //rows
-                for (int j = 0; j < box_grid[i].size(); j++) { //columns
-                    // Conway's Life of Game algorithm
-                    //Survive with 2 or 3 neighbours
-                    //Die with 0 or 1 neighbours
-                    //Birth with exactly 3 neighbours when dead
-                    int living{};
-                    // Scan neighbours for living
-                    for (int x = i - 1; x <= (i + 1); x++) { //rows
-                        for (int y = j - 1; y <= (j + 1); y++) { //columns
-                            if (x >= 0 && y >= 0) {
-                                if (x < box_grid.size() && y < box_grid[0].size()) {
-                                    if (bool_grid[x][y] == true) living++; //Count neighbours
-                                }
-                            }
-                        }
-                    }
-
-                    if (bool_grid[i][j] == true) { //Survive with 2 or 3 neighbours
-                        living -= 1; //don't count self
-                        if (living < 2 || living > 3) { //Die unless 2 or 3 neighbours
-                            bool_grid_next[i][j] = false;
-                            box_grid[i][j].setFillColor(sf::Color::Black);
-                        }
-                    }
-                    else {
-                        if (living == 3) {
-                            bool_grid_next[i][j] = true; //Birth from dead when exactly 3 neighbours
-                            box_grid[i][j].setFillColor(sf::Color::White);
-                        }
-                    }
-                }
-            }
+            // // Loop entire grid via index
+            lifeObj.evolutionDayNight(texture);
         }
-        bool_grid = bool_grid_next; //Copy incoming grid over old grid for next life cycle
 
+        // Copy next cell grid onto current cell grid for next life cycle
+        lifeObj.copyGridNext();
 
         if (step) { //Pause until next step or unpaused
             life = false;
@@ -107,55 +47,41 @@ int main() {
 
         while (const std::optional event = window.pollEvent()) //User input Events
         {
-            if (event->is<sf::Event::Closed>()) {
-                window.close(); //Close window to exit
-            }
-            else if (const auto *key_pressed = event->getIf<sf::Event::KeyPressed>()) {
-                if(key_pressed->scancode == sf::Keyboard::Scancode::Escape){ // Escape to Close
+            if (const auto *key_pressed = event->getIf<sf::Event::KeyPressed>()) {
+                if(key_pressed->scancode == sf::Keyboard::Scancode::Escape ||
+                    key_pressed->scancode == sf::Keyboard::Scancode::Q){ // Exit
                     cout << "Window closed" << endl;
                     window.close();
                 }
                 else if (key_pressed->scancode == sf::Keyboard::Scancode::P) { // Pause
-                    cout << "Paused" << endl;
-                    if (life) life = false;
-                    else life = true;
+
+                    if (life) { life = false; cout << "Paused" << endl; }
+                    else { life = true; cout << "Unpaused" << endl; }
                     step = false;
                 }
-                else if (key_pressed->scancode == sf::Keyboard::Scancode::Space) { // Pause and stepped
+                else if (key_pressed->scancode == sf::Keyboard::Scancode::Space ||
+                    key_pressed->scancode == sf::Keyboard::Scancode::S) { // Pause and stepped
                     cout << "Stepping" << endl;
                     step = true;
                     life = true;
                 }
-                else if (key_pressed->scancode == sf::Keyboard::Scancode::R) { // Pause and stepped
+                else if (key_pressed->scancode == sf::Keyboard::Scancode::R) { // Restart
                     // Reboot entire grid system, populate with random
                     cout << "Rebooting grid" << endl;
-                    for (int i = 0; i < box_grid.size(); i++) {
-                        for (int j = 0; j < box_grid[i].size(); j++) {
-                            bool next_bool = getRandBool();
-                            if (next_bool) {
-                                bool_grid[i][j] = true;
-                                bool_grid_next[i][j] = true;
-                                box_grid[i][j].setFillColor(sf::Color::White);
-                            }
-                            else {
-                                bool_grid[i][j] = false;
-                                bool_grid_next[i][j] = false;
-                                box_grid[i][j].setFillColor(sf::Color::Black);
-                            }
-                        }
-                    }
+                    lifeObj.rebootGrids();
+                    lifeObj.firstRender(texture);
                 }
+            }
+
+            if (event->is<sf::Event::Closed>()) { // Close window action
+                window.close();
             }
         }
 
         //Render current frame
-        window.clear();
-        for (int i = 0; i < box_grid.size(); i++) { //Render grid
-            for (int j = 0; j < box_grid[i].size(); j++) {
-                window.draw(box_grid[i][j]);
-            }
-        }
-        window.display();
+        texture.display(); //finished rendering to texture
+        window.draw(sprite); //draw texture to window
+        window.display(); //render window to display
     }
 
     cout << "Window closed, exiting" << endl;
