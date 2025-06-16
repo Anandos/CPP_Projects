@@ -1,0 +1,23 @@
+Day Night - B3678/S34678
+Virus - B36/S235
+Cells - B2/S no survivors
+Maze - B3/S12345
+Gems - B3457/S4568
+Star Trek - B3/S0248
+Assimilation - B345/S4567
+Rings n slugs - B56/S14568
+Vote - B5678/S45678
+Castle - B3678/S135678
+
+Langton's Ant
+White Right, Black Left
+RLR, chaotic
+LLRR, symmetrical
+LRRRRRLLR, square fill
+LLRRRLRLRLLR, chaotic highway
+RRLLLRLLLRRR, triangular fill
+
+Hexagonal Ant
+L2NNL1L2L1, cirulcar growth
+L1L2NUL2L1R2, spiral
+R1R2NUR2R1L2, spiral
