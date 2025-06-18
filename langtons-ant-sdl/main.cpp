@@ -1,4 +1,4 @@
-//'langtons-sdl' created on 16/06/2025 by Anand Damodaran
+//'langtons-upgrade' created on 12/06/2025 by Anand Damodaran
 #include <iostream>
 #include <random>
 #include <SDL3/SDL.h>
@@ -25,20 +25,21 @@ int main() {
     SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
 
     // SDL Texture
-    SDL_Texture *texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_RGBA8888,SDL_TEXTUREACCESS_TARGET,
-        win_width, win_height);
+    SDL_Texture *texture = SDL_CreateTexture(
+        renderer,
+        SDL_PIXELFORMAT_RGBA8888,SDL_TEXTUREACCESS_TARGET,
+        win_width, win_height
+        );
     SDL_SetRenderTarget(renderer, texture);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // set renderer to black
     SDL_RenderClear(renderer);
 
     // Objects
-    EvolutionClass evolveObj(win_width, win_height, 20, 2, 1);
+    EvolutionClass evolveObj(win_width, win_height, 2, 2, 0);
     evolveObj.createGrids();
-    evolveObj.antCentre();
     evolveObj.renderGrids(renderer);
 
-    int frame = 0;
-    int sleep = 1000;
+    int sleep = 0;
     bool pause = true;
     bool running = true;
     // Main Cycle
@@ -47,17 +48,10 @@ int main() {
         if (!pause) {
             std::this_thread::sleep_for(std::chrono::milliseconds(sleep)); // Pause
 
-            // print ant position
-            frame++;
-            if (frame % 120) {
-                cout << "Ant position: " << evolveObj.langton_x << " " << evolveObj.langton_y;
-                cout << " | direction: " << evolveObj.langton_direction << endl;
-            }
-
             SDL_SetRenderTarget(renderer, texture); // set render to texture
 
             // Logic loop
-            evolveObj.langtons(renderer);
+            evolveObj.conwaysDayNight(renderer);
             evolveObj.copyGridNext();
         }
 
@@ -75,7 +69,6 @@ int main() {
                 }
                 else if (event.key.key == SDLK_R) {
                     evolveObj.restartGrids(); cout << "Restarting\n";
-                    evolveObj.antCentre();
                     evolveObj.renderGrids(renderer);
                 }
                 else if (event.key.key == SDLK_S) {

@@ -29,11 +29,9 @@ EvolutionClass::EvolutionClass(int win_width, int win_height, int size, int colo
     , win_height(win_height)
     , colour_palette{false}
     , border(border)
-    , rand_max{3}
-    , random(true)
-    , langton_direction{0}
-    , langton_x{0}
-    , langton_y{0}
+    , survivors{0}
+    , rand_max{2}
+    , rand_lower{0}
 {};
 
 void EvolutionClass::createGrids() {
@@ -51,14 +49,16 @@ void EvolutionClass::createGrids() {
             cell_grid[row].push_back(rect);
 
             // rectangle colour creation
-            cell_grid_colour[row].push_back(1);
-            cell_grid_colour_next[row].push_back(1);
+            int cell_colour = randomInt(rand_max, false);
+
+            cell_grid_colour[row].push_back(cell_colour);
+            cell_grid_colour_next[row].push_back(cell_colour);
         }
         row++;
     }
 }
 
-void EvolutionClass::renderAll(SDL_Renderer *renderer) {
+void EvolutionClass::renderGrids(SDL_Renderer *renderer) {
     // Render 2D grid using referenced renderer object
     int fade_clr = 0;
     for (int row = 0; row < cell_grid.size(); row++) {
@@ -85,62 +85,148 @@ void EvolutionClass::renderAll(SDL_Renderer *renderer) {
     }
 }
 
-void EvolutionClass::antCentre() {
-    langton_x = cell_grid_colour.size() / 2;
-    langton_y = cell_grid_colour[0].size() / 2;
-    langton_direction = 0;
+int EvolutionClass::scanNeighbours(int row, int col) {
+    // Scan around current cell
+    survivors = 0;
+    for (int x = row - 1; x <= row + 1; x++) {
+        for (int y = col - 1; y <= col + 1; y++) {
+            // check scan is within grid
+            if (x >= 0 && y >= 0) {
+                if (x < cell_grid.size() && y < cell_grid[0].size()) {
+                    if (cell_grid_colour[x][y] > 0) survivors++; // add up surviving neighbours
+                }
+            }
+        }
+    }
+
+    return survivors;
 }
 
-void EvolutionClass::langtons(SDL_Renderer *renderer) {
-    // White Right, Black Left
+void EvolutionClass::conways(SDL_Renderer *renderer) {
+    // B3/S23
+    rand_max = 2;
+    for (int row = 0; row < cell_grid.size(); row++) {
+        for (int col = 0; col < cell_grid[0].size(); col++) {
+            // Scan around current cell
+            survivors = scanNeighbours(row, col);
 
-    if (cell_grid_colour[langton_x][langton_y] == 1) { // cell is alive, turn right
-        langton_direction += 1;
-        langton_direction %= 4;
-        cell_grid_colour_next[langton_x][langton_y] = 0; // kill cell
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // set colour black
-        SDL_RenderFillRect(renderer, &cell_grid[langton_x][langton_y]); // render cell
+            // Apply rules to current cell
+            if (cell_grid_colour[row][col] > 0) { // if cell is alive
+                survivors -= 1;
+                if (survivors < 2 || survivors > 3) {
+                    cell_grid_colour_next[row][col] = -126; // kill cell
+                    SDL_SetRenderDrawColor(renderer, 126, 0, 0, 255); // set colour black
+                    SDL_RenderFillRect(renderer, &cell_grid[row][col]); // render cell
+                }
+            }
+            else { // cell is dead
+                if (survivors == 3) {
+                    cell_grid_colour_next[row][col] = 1; // birth cell
+                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // set colour white
+                    SDL_RenderFillRect(renderer, &cell_grid[row][col]); // render cell
+                }
+            }
+        }
     }
-    else { // cell is dead, turn left
-        langton_direction -= 1;
-        langton_direction %= 4;
-        cell_grid_colour_next[langton_x][langton_y] = 1; // birth cell
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // set colour white
-        SDL_RenderFillRect(renderer, &cell_grid[langton_x][langton_y]); // render cell
-    }
-
-    switch (langton_direction) {
-        case 0:
-            langton_y -= 1;
-            if (langton_y < 0) langton_y = cell_grid_colour[0].size() - 1;
-            break;
-        case 1:
-            langton_x += 1;
-            if (langton_x >= cell_grid_colour.size()) langton_x = 0;
-            break;
-        case 2:
-            langton_y += 1;
-            if (langton_y >= cell_grid_colour[0].size()) langton_y = 0;
-            break;
-        case 3:
-            langton_x -= 1;
-            if (langton_x < 0) langton_x = cell_grid_colour.size() - 1;
-            break;
-        default:
-            std::cout << "Ant direction error: " << langton_direction << std::endl;
-    }
-
-    // render ant
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // set colour black
-    SDL_RenderFillRect(renderer, &cell_grid[langton_x][langton_y]); // render cell
 }
+
+void EvolutionClass::conwaysDayNight(SDL_Renderer *renderer) {
+    // B3678/S34678
+    rand_max = 1;
+    for (int row = 0; row < cell_grid.size(); row++) {
+        for (int col = 0; col < cell_grid[0].size(); col++) {
+            // Scan around current cell
+            survivors = scanNeighbours(row, col);
+
+            // Apply rules to current cell
+            // B3/S23
+            if (cell_grid_colour[row][col] > 0) { // if cell is alive
+                survivors -= 1;
+                if (survivors < 3 || survivors == 5) {
+                    cell_grid_colour_next[row][col] = 0; // kill cell
+                    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // set colour black
+                    SDL_RenderFillRect(renderer, &cell_grid[row][col]); // render cell
+                }
+            }
+            else { // cell is dead
+                if (survivors == 3 || survivors > 5) {
+                    cell_grid_colour_next[row][col] = 1; // birth cell
+                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // set colour white
+                    SDL_RenderFillRect(renderer, &cell_grid[row][col]); // render cell
+                }
+            }
+        }
+    }
+}
+
+void EvolutionClass::conwaysVirus(SDL_Renderer *renderer) {
+    // B36/S235
+    rand_max = 50;
+    for (int row = 0; row < cell_grid.size(); row++) {
+        for (int col = 0; col < cell_grid[0].size(); col++) {
+            // Scan around current cell
+            survivors = scanNeighbours(row, col);
+
+            // Apply rules to current cell
+            // B36/S235
+            if (cell_grid_colour[row][col] > 0) { // if cell is alive
+                survivors -= 1;
+                if (survivors < 2 || survivors == 4 || survivors > 5) {
+                    cell_grid_colour_next[row][col] = 0; // kill cell
+                    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // set colour black
+                    SDL_RenderFillRect(renderer, &cell_grid[row][col]); // render cell
+                }
+            }
+            else { // cell is dead
+                if (survivors == 3 || survivors == 6) {
+                    cell_grid_colour_next[row][col] = 1; // birth cell
+                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // set colour white
+                    SDL_RenderFillRect(renderer, &cell_grid[row][col]); // render cell
+                }
+            }
+        }
+    }
+}
+
+void EvolutionClass::conwaysMaze(SDL_Renderer *renderer) {
+    // B3/S12345
+    rand_max = 200;
+    for (int row = 0; row < cell_grid.size(); row++) {
+        for (int col = 0; col < cell_grid[0].size(); col++) {
+            // Scan around current cell
+            survivors = scanNeighbours(row, col);
+
+            // Apply rules to current cell
+            // B3/S12345
+            if (cell_grid_colour[row][col] > 0) { // if cell is alive
+                survivors -= 1;
+                if (survivors > 5 || survivors == 0) {
+                    cell_grid_colour_next[row][col] = 0; // kill cell
+                    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // set colour black
+                    SDL_RenderFillRect(renderer, &cell_grid[row][col]); // render cell
+                }
+            }
+            else { // cell is dead
+                if (survivors == 3) {
+                    cell_grid_colour_next[row][col] = 1; // birth cell
+                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // set colour white
+                    SDL_RenderFillRect(renderer, &cell_grid[row][col]); // render cell
+                }
+            }
+        }
+    }
+}
+
+
 
 void EvolutionClass::restartGrids() {
     // Re randomise entire grid
+    int cell_colour = 1;
     for (int row = 0; row < cell_grid.size(); row++) {
         for (int col = 0; col < cell_grid[0].size(); col++) {
-            cell_grid_colour[row][col] = 1;
-            cell_grid_colour_next[row][col] = 1;
+            cell_colour = randomInt(rand_max, false);
+            cell_grid_colour[row][col] = cell_colour;
+            cell_grid_colour_next[row][col] = cell_colour;
         }
     }
 }

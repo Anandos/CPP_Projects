@@ -20,11 +20,9 @@ public:
     int win_height;
     bool colour_palette;
     int border;
+    int survivors;
     int rand_max;
-    bool random;
-    int langton_direction;
-    int langton_x;
-    int langton_y;
+    int rand_lower;
 
     // Cell SDL rectangles and their positions across the screen
     std::vector<std::vector<SDL_FRect>> cell_grid;
@@ -36,13 +34,16 @@ public:
     std::vector<std::vector<int>> cell_grid_colour_next;
 
     void createGrids();
-    void renderAll(SDL_Renderer *renderer);
+    void renderGrids(SDL_Renderer *renderer);
     void restartGrids();
     void copyGridNext();
+    int scanNeighbours(int row, int col);
 
-    // void randomWash(SDL_Renderer *renderer);
-    void antCentre();
-    void langtons(SDL_Renderer *renderer);
+    void conways(SDL_Renderer *renderer);
+    void conwaysDayNight(SDL_Renderer *renderer);
+    void conwaysVirus(SDL_Renderer *renderer);
+    void conwaysMaze(SDL_Renderer *renderer);
+
 };
 
 #endif //CLASS_H
